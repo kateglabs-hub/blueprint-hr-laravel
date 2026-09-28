@@ -112,3 +112,10 @@ jobs:
 
       - name: NPM production dependency audit
         run: npm audit --omit=dev
+
+      - name: Validate deployment manifests
+        run: |
+          test -f Dockerfile
+          test -f docker-compose.floci.yml
+          test -f .env.floci.example
+          test -f deploy/aws/README.md

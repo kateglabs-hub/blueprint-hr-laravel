@@ -26,3 +26,4 @@ Thumbs.db
 # Local databases and runtime logs
 database/*.sqlite
 storage/logs/*
+storage/floci/*

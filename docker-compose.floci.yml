@@ -1,0 +1,87 @@
+services:
+  floci:
+    image: floci/floci:latest
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./storage/floci:/app/data
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: blueprint_hr
+      MYSQL_USER: blueprint_hr
+      MYSQL_PASSWORD: blueprint_hr_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u root", "-proot_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  aws-init:
+    image: amazon/aws-cli:2.27.41
+    depends_on:
+      floci:
+        condition: service_started
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://floci:4566
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      "until aws s3api list-buckets >/dev/null 2>&1; do sleep 1; done;
+      aws s3api head-bucket --bucket blueprint-hr-local 2>/dev/null ||
+      aws s3 mb s3://blueprint-hr-local;
+      aws sqs get-queue-url --queue-name blueprint-hr-local 2>/dev/null ||
+      aws sqs create-queue --queue-name blueprint-hr-local"
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      mysql:
+        condition: service_healthy
+      floci:
+        condition: service_started
+      aws-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_started
+    env_file:
+      - .env.floci
+    environment:
+      RUN_MIGRATIONS: "true"
+      RUN_OPTIMIZE: "false"
+      RUN_STORAGE_LINK: "true"
+    ports:
+      - "8080:80"
+
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      app:
+        condition: service_started
+    env_file:
+      - .env.floci
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=120"]
+
+volumes:
+  mysql-data:
+  redis-data:

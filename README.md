@@ -108,6 +108,17 @@ sudo nginx -t && sudo systemctl reload nginx
 
 Use a managed or hardened MySQL 8 instance, TLS at the Nginx boundary, environment secrets outside source control, a scheduled `php artisan schedule:run` entry, queue supervision, database backups, and log rotation. Do not commit `.env`, production credentials, generated reports, or user-uploaded documents.
 
+## AWS and Floci container deployment
+
+The repository also includes a production `Dockerfile` for ECS/Fargate or App Runner and a local Floci environment that exercises the AWS-shaped S3 and SQS integrations used by production. See [`deploy/aws/README.md`](deploy/aws/README.md) for the AWS service mapping and release checklist.
+
+```bash
+cp .env.floci.example .env.floci
+docker compose -f docker-compose.floci.yml up --build
+```
+
+The local stack exposes the Laravel app at `http://localhost:8080` and Floci at `http://localhost:4566`. It uses dummy AWS credentials and persists emulator state under `storage/floci/`; do not reuse those settings in AWS.
+
 ## Source analysis artifacts
 
 The original repository remains at `../blueprint-hr`. Its analysis artifacts are in `../blueprint-hr/analysis/`, including the repository inventory, schema and router extracts, and the detailed Laravel feature map. The port implementation is intentionally kept in this separate directory so the original source remains available for comparison and incremental migration.
